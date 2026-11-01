@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Share2, ShoppingCart, Check, ImagePlus } from 'lucide-react'
 import FavoriteButton from '../common/FavoriteButton'
+import LazyImage from '../common/LazyImage'
 import { formatPrice, truncate } from '../../utils/helpers'
 import { useCart } from '../../hooks/useCart'
 import { getExtraImage, setExtraImage } from '../../utils/extraImagesStorage'
@@ -99,14 +100,12 @@ export default function GunCard({ gun, onSelect, onEdit, onDelete, onRestore, is
         aria-label={`View ${gun.name}`}
       >
         <div className="card-img-wrap">
-          <img
+          <LazyImage
             className="card-img"
             src={displayImg}
             alt={gun.name}
             width="240"
             height="180"
-            loading="lazy"
-            decoding="async"
           />
 
           {extraImg && (

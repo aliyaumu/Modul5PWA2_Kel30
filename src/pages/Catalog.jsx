@@ -10,6 +10,7 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
+  Zap,
 } from 'lucide-react'
 import { useGuns } from '../hooks/useGuns'
 import GUNS_LOCAL from '../data/guns'
@@ -17,6 +18,7 @@ import GunCard from '../components/gun/GunCard'
 import GunDetail from '../components/gun/GunDetail'
 import AdvancedFilter from '../components/common/AdvancedFilter'
 import gunService from '../services/gunService'
+import queryCache from '../utils/queryCache'
 import {
   matchesSearch,
   matchesCategory,
@@ -48,6 +50,20 @@ export default function Catalog({ onNavigate }) {
   const syncArchived = () => {
     setArchivedGuns(getArchivedGuns())
   }
+
+  // Query Cache reactive indicator
+  const [cacheStatus, setCacheStatus] = useState(() => (queryCache.lastHit ? 'HIT' : 'LIVE'))
+
+  useEffect(() => {
+    const handleCacheEvent = (e) => {
+      if (e.detail?.type === 'HIT') setCacheStatus('HIT')
+      else if (e.detail?.type === 'SET') setCacheStatus('STORED')
+      else if (e.detail?.type === 'INVALIDATE') setCacheStatus('INVALIDATED')
+      else if (e.detail?.type === 'MISS') setCacheStatus('MISS')
+    }
+    window.addEventListener('query_cache_event', handleCacheEvent)
+    return () => window.removeEventListener('query_cache_event', handleCacheEvent)
+  }, [])
 
   // Active raw guns excluding archived ones
   const activeRawGuns = useMemo(() => {
@@ -213,6 +229,31 @@ export default function Catalog({ onNavigate }) {
               </button>
             )}
           </div>
+        </div>
+
+        {/* Query Cache Indicator Strip */}
+        <div className="cache-status-strip">
+          <div className="cache-pill">
+            <Zap size={14} color="#f39c12" />
+            <span>
+              Query Cache:{' '}
+              <strong className={cacheStatus === 'HIT' ? 'cache-pill--hit' : 'cache-pill--live'}>
+                {cacheStatus === 'HIT' ? '🟢 HIT (Memori Cache Cepat)' : '🌐 LIVE / Fresh Server'}
+              </strong>
+            </span>
+          </div>
+
+          <button
+            type="button"
+            className="btn btn--outline btn--sm"
+            onClick={() => {
+              queryCache.invalidate('guns')
+              refetch()
+            }}
+            title="Bersihkan cache dan paksa ambil data fresh dari server"
+          >
+            <RefreshCw size={13} /> Refresh Cache
+          </button>
         </div>
 
         {/* Filters */}

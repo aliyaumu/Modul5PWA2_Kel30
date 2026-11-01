@@ -8,24 +8,36 @@ import GUNS_LOCAL from './data/guns.js'
 import './App.css'
 
 // ---------------------------------------------------------------------------
-// Lazy Loaded Components (Requirement 3: Lazy Loading)
+// Lazy Loaded Components with Console Logging (Requirement 3: Lazy Loading)
 // ---------------------------------------------------------------------------
-const Catalog = lazy(() => import('./pages/Catalog.jsx'))
-const FavoritesPage = lazy(() => import('./pages/FavoritesPage.jsx'))
-const ProfilePage = lazy(() => import('./pages/ProfilePage.jsx'))
-const EditProfilePage = lazy(() => import('./pages/EditProfilePage.jsx'))
-const CreateGunPage = lazy(() => import('./pages/CreateGunPage.jsx'))
-const EditGunPage = lazy(() => import('./pages/EditGunPage.jsx'))
-const GunDetail = lazy(() => import('./components/gun/GunDetail.jsx'))
-const CartPage = lazy(() => import('./pages/CartPage.jsx'))
-const SplashScreen = lazy(() => import('./components/common/SplashScreen.jsx'))
-const ConfirmModal = lazy(() => import('./components/modals/ConfirmModal.jsx'))
+const lazyWithLog = (name, importFn) =>
+  lazy(() => {
+    console.info(
+      `%c[LazyLoad] ⚡ Memuat chunk modul halaman: ${name}`,
+      'background: #ebf5fb; color: #2980b9; font-weight: bold; padding: 2px 6px; border-radius: 3px;',
+    )
+    return importFn()
+  })
+
+const Catalog = lazyWithLog('Catalog', () => import('./pages/Catalog.jsx'))
+const FavoritesPage = lazyWithLog('FavoritesPage', () => import('./pages/FavoritesPage.jsx'))
+const ProfilePage = lazyWithLog('ProfilePage', () => import('./pages/ProfilePage.jsx'))
+const EditProfilePage = lazyWithLog('EditProfilePage', () => import('./pages/EditProfilePage.jsx'))
+const CreateGunPage = lazyWithLog('CreateGunPage', () => import('./pages/CreateGunPage.jsx'))
+const EditGunPage = lazyWithLog('EditGunPage', () => import('./pages/EditGunPage.jsx'))
+const GunDetail = lazyWithLog('GunDetail', () => import('./components/gun/GunDetail.jsx'))
+const CartPage = lazyWithLog('CartPage', () => import('./pages/CartPage.jsx'))
+const SplashScreen = lazyWithLog('SplashScreen', () => import('./components/common/SplashScreen.jsx'))
+const ConfirmModal = lazyWithLog('ConfirmModal', () => import('./components/modals/ConfirmModal.jsx'))
 
 function LoadingFallback() {
   return (
-    <div className="state-box" style={{ margin: '48px auto', maxWidth: '300px' }}>
-      <Loader size={30} className="spin" />
-      <p>Memuat modul armory…</p>
+    <div className="lazy-loading-banner">
+      <Loader size={24} className="spin" />
+      <div>
+        <strong>⚡ [Lazy Load Aktif]</strong>
+        <p style={{ margin: 0, fontSize: '0.85rem' }}>Sedang mengunduh chunk modul secara asinkron…</p>
+      </div>
     </div>
   )
 }
