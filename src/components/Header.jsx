@@ -1,21 +1,26 @@
-import { Plus } from 'lucide-react'
+import { Plus, ShoppingCart, Heart, User, Layers } from 'lucide-react'
 import { useFavorites } from '../hooks/useFavorites'
-
-const NAV_ITEMS = [
-  { id: 'Catalog', label: 'Catalog' },
-  { id: 'Favorites', label: 'Favorites', hasBadge: true },
-  { id: 'Profile', label: 'Profile' },
-  { id: 'About', label: 'About' },
-  { id: 'Contact', label: 'Contact' },
-]
+import { useCart } from '../hooks/useCart'
 
 function Header({ tab, onTab, onNavigateCreate }) {
   const { favorites } = useFavorites()
+  const { itemCount: cartCount } = useCart()
   const favCount = favorites ? favorites.length : 0
+
+  const navItems = [
+    { id: 'Catalog', label: 'Catalog', icon: Layers },
+    { id: 'Favorites', label: 'Favorites', icon: Heart, badge: favCount },
+    { id: 'Cart', label: 'Cart', icon: ShoppingCart, badge: cartCount },
+    { id: 'Profile', label: 'Profile', icon: User },
+  ]
 
   return (
     <header className="header">
-      <div className="header-brand-wrap" onClick={() => onTab('Catalog')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div
+        className="header-brand-wrap"
+        onClick={() => onTab('Catalog')}
+        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
+      >
         <div className="header-logo-badge">
           <img src="/logo.png" alt="Bore & Barrel" />
         </div>
@@ -23,19 +28,22 @@ function Header({ tab, onTab, onNavigateCreate }) {
       </div>
 
       <nav className="nav">
-        {NAV_ITEMS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className={tab === item.id ? 'nav-link active' : 'nav-link'}
-            onClick={() => onTab(item.id)}
-          >
-            {item.label}
-            {item.hasBadge && favCount > 0 && (
-              <span className="nav-badge">{favCount}</span>
-            )}
-          </button>
-        ))}
+        {navItems.map((item) => {
+          const Icon = item.icon
+          const isActive = tab === item.id
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={isActive ? 'nav-link active' : 'nav-link'}
+              onClick={() => onTab(item.id)}
+            >
+              <Icon size={15} />
+              <span>{item.label}</span>
+              {item.badge > 0 && <span className="nav-badge">{item.badge}</span>}
+            </button>
+          )
+        })}
       </nav>
 
       {onNavigateCreate && (

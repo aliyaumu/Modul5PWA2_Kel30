@@ -1,49 +1,67 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Shield,
   Copy,
   Check,
-  Save,
   Heart,
   FileText,
-  Camera,
   Play,
+  Edit3,
+  Trash2,
+  ExternalLink,
+  MapPin,
+  Clock,
+  Phone,
+  Info,
+  Archive,
 } from 'lucide-react'
 import userService from '../services/userService'
 import { useFavorites } from '../hooks/useFavorites'
+import {
+  getAllDraftIds,
+  loadDraft,
+  getDraftTimestamp,
+  formatDraftTime,
+  deleteDraft,
+} from '../utils/draftStorage'
+import { getArchivedCount } from '../utils/archiveStorage'
 
-/**
- * Get count of active drafts in localStorage
- */
-const getActiveDraftCount = () => {
-  try {
-    let count = 0
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      if (key && (key.startsWith('bore_barrel_draft_') || key.startsWith('recipe_draft_'))) {
-        count++
-      }
-    }
-    return count
-  } catch {
-    return 0
-  }
-}
-
-/**
- * ProfilePage — User identity and Armory settings.
- * Manages operator profile, identifier, favorites stats, and draft storage.
- */
-export default function ProfilePage({ onReplaySplash }) {
+export default function ProfilePage({
+  onReplaySplash,
+  onNavigateEditProfile,
+  onResumeDraft,
+}) {
   const [profile, setProfile] = useState(() => userService.getUserProfile())
-  const [username, setUsername] = useState(profile.username || 'Shooter')
-  const [bio, setBio] = useState(profile.bio || '')
-  const [avatar, setAvatar] = useState(profile.avatar || null)
   const [copied, setCopied] = useState(false)
-  const [feedback, setFeedback] = useState('')
-
   const { favorites } = useFavorites()
-  const [draftCount] = useState(getActiveDraftCount)
+  const [drafts, setDrafts] = useState([])
+  const [archivedCount, setArchivedCount] = useState(getArchivedCount)
+
+  const loadDraftsList = useCallback(() => {
+    const ids = getAllDraftIds()
+    const list = ids
+      .map((id) => {
+        const data = loadDraft(id)
+        const ts = getDraftTimestamp(id)
+        return {
+          id,
+          data,
+          timestamp: ts,
+        }
+      })
+      .filter((item) => item.data !== null)
+    setDrafts(list)
+    setArchivedCount(getArchivedCount())
+  }, [])
+
+  useEffect(() => {
+    loadDraftsList()
+  }, [loadDraftsList])
+
+  // Sync profile if updated elsewhere
+  useEffect(() => {
+    setProfile(userService.getUserProfile())
+  }, [])
 
   const handleCopyId = () => {
     if (profile.userId) {
@@ -53,93 +71,64 @@ export default function ProfilePage({ onReplaySplash }) {
     }
   }
 
-  const handleAvatarChange = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-
-    if (file.size > 2 * 1024 * 1024) {
-      setFeedback('Avatar image must be under 2MB.')
-      setTimeout(() => setFeedback(''), 3000)
-      return
-    }
-
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      const base64 = event.target.result
-      setAvatar(base64)
-      userService.updateAvatar(base64)
-      setFeedback('Avatar updated.')
-      setTimeout(() => setFeedback(''), 3000)
-    }
-    reader.readAsDataURL(file)
-  }
-
-  const handleSaveProfile = (e) => {
-    e.preventDefault()
-    const updated = {
-      ...profile,
-      username: username.trim() || 'Shooter',
-      bio: bio.trim(),
-      avatar,
-    }
-    const result = userService.saveUserProfile(updated)
-    if (result.success) {
-      setProfile(result.data)
-      setFeedback('Profile successfully updated.')
-      setTimeout(() => setFeedback(''), 3000)
-    } else {
-      setFeedback('Failed to save profile.')
-    }
+  const handleDeleteDraft = (draftId) => {
+    deleteDraft(draftId)
+    loadDraftsList()
   }
 
   return (
     <div className="profile-page">
-      <section className="masthead" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+      <section
+        className="masthead"
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: '12px',
+        }}
+      >
         <div>
           <h1 className="display">Operator Profile</h1>
           <p className="lede">
-            Operator credentials, procurement statistics, and armorer details.
+            Identitas armorer, ringkasan inventaris, draft offline, serta informasi armory.
           </p>
         </div>
-        {onReplaySplash && (
-          <button
-            type="button"
-            className="btn btn--outline btn--sm"
-            onClick={onReplaySplash}
-            title="Replay introductory splash animation"
-          >
-            <Play size={14} /> Replay Intro
-          </button>
-        )}
-      </section>
-
-      {feedback && (
-        <div className="toast toast--success">
-          <Check size={18} /> {feedback}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {onReplaySplash && (
+            <button
+              type="button"
+              className="btn btn--outline btn--sm"
+              onClick={onReplaySplash}
+              title="Putar ulang animasi intro"
+            >
+              <Play size={14} /> Replay Intro
+            </button>
+          )}
+          {onNavigateEditProfile && (
+            <button
+              type="button"
+              className="btn btn--primary btn--sm"
+              onClick={onNavigateEditProfile}
+              title="Buka halaman edit profil"
+            >
+              <Edit3 size={14} /> Edit Profile
+            </button>
+          )}
         </div>
-      )}
+      </section>
 
       {/* Operator Card */}
       <div className="profile-card">
         <div className="profile-card-top">
           <div className="avatar-wrap">
-            {avatar ? (
-              <img src={avatar} alt={profile.username} className="avatar-img" />
+            {profile.avatar ? (
+              <img src={profile.avatar} alt={profile.username} className="avatar-img" />
             ) : (
               <div className="avatar-placeholder">
                 <Shield size={36} stroke="var(--brass)" />
               </div>
             )}
-            <label htmlFor="avatar-file-input" className="avatar-upload-btn" title="Upload avatar">
-              <Camera size={14} />
-              <input
-                id="avatar-file-input"
-                type="file"
-                accept="image/*"
-                onChange={handleAvatarChange}
-                className="hidden-file-input"
-              />
-            </label>
           </div>
 
           <div className="profile-identity">
@@ -150,11 +139,12 @@ export default function ProfilePage({ onReplaySplash }) {
                 type="button"
                 className="icon-btn"
                 onClick={handleCopyId}
-                title="Copy User ID to clipboard"
+                title="Salin ID Operator"
               >
                 {copied ? <Check size={14} color="var(--brass)" /> : <Copy size={14} />}
               </button>
             </div>
+            {profile.bio && <p className="profile-bio-text">{profile.bio}</p>}
           </div>
         </div>
 
@@ -163,52 +153,146 @@ export default function ProfilePage({ onReplaySplash }) {
           <div className="stat-item">
             <Heart size={20} className="stat-icon" stroke="var(--brass)" />
             <div className="stat-val">{favorites.length}</div>
-            <div className="stat-label">Procurement Favorites</div>
+            <div className="stat-label">Favorit Disimpan</div>
           </div>
           <div className="stat-item">
             <FileText size={20} className="stat-icon" stroke="var(--steel)" />
-            <div className="stat-val">{draftCount}</div>
-            <div className="stat-label">Saved Offline Drafts</div>
+            <div className="stat-val">{drafts.length}</div>
+            <div className="stat-label">Draft Katalog</div>
+          </div>
+          <div className="stat-item">
+            <Archive size={20} className="stat-icon" stroke="var(--steel)" />
+            <div className="stat-val">{archivedCount}</div>
+            <div className="stat-label">Katalog Diarsipkan</div>
           </div>
         </div>
       </div>
 
-      {/* Profile Form */}
-      <form onSubmit={handleSaveProfile} className="profile-form">
-        <h3 className="section-title">Armorer Details</h3>
-
-        <div className="form-group">
-          <label htmlFor="prof-name" className="form-label">
-            Callsign / Operator Alias
-          </label>
-          <input
-            id="prof-name"
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="e.g. Operator Delta, Master Gunsmith"
-            className="form-input"
-          />
+      {/* SECTION 1: Draft Management (List Katalog yang di-draft-kan) */}
+      <section className="profile-section card-box">
+        <div className="fieldset-header" style={{ marginBottom: '16px' }}>
+          <div>
+            <h2 className="section-title">Draft Katalog ({drafts.length})</h2>
+            <p className="card-box-desc" style={{ marginBottom: 0 }}>
+              Daftar form registrasi atau edit hardware yang tersimpan di perangkat offline.
+            </p>
+          </div>
         </div>
 
-        <div className="form-group">
-          <label htmlFor="prof-bio" className="form-label">
-            Armory Notes / Station Bio
-          </label>
-          <textarea
-            id="prof-bio"
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            placeholder="Qualifications, preferred calibers, unit assignment..."
-            rows={3}
-            className="form-textarea"
-          />
-        </div>
+        {drafts.length === 0 ? (
+          <div className="state-box" style={{ padding: '24px', margin: '8px 0' }}>
+            <FileText size={28} stroke="var(--steel)" />
+            <p>Belum ada draft katalog yang tersimpan.</p>
+          </div>
+        ) : (
+          <ul className="draft-list">
+            {drafts.map((draft) => {
+              const formData = draft.data.formData || {}
+              const draftTitle =
+                formData.name ||
+                (draft.id === 'create'
+                  ? 'Registrasi Hardware Baru'
+                  : `Draft Edit (${draft.id.substring(0, 8)})`)
+              const previewImg =
+                draft.data.uploadedImageUrl ||
+                draft.data.imagePreview ||
+                '/guns/pistol.svg'
 
-        <button type="submit" className="btn btn--primary">
-          <Save size={16} /> Save Armorer Profile
-        </button>
-      </form>
+              return (
+                <li key={draft.id} className="draft-item">
+                  <img
+                    src={previewImg}
+                    alt={draftTitle}
+                    className="draft-item-thumb"
+                  />
+                  <div className="draft-item-info">
+                    <span className="draft-item-title">{draftTitle}</span>
+                    <span className="draft-item-meta">
+                      {formData.type || 'Platform'} · {formData.caliber || 'Caliber'} · $
+                      {formData.price || 0}
+                    </span>
+                    <span className="draft-item-time">
+                      Tersimpan: {formatDraftTime(draft.timestamp)}
+                    </span>
+                  </div>
+
+                  <div className="draft-item-actions">
+                    <button
+                      type="button"
+                      className="btn btn--outline btn--sm"
+                      onClick={() => onResumeDraft && onResumeDraft(draft.id, draft.data)}
+                      title="Lanjutkan edit draft ini"
+                    >
+                      <ExternalLink size={14} /> Lanjutkan
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn--danger-ghost btn--sm"
+                      onClick={() => handleDeleteDraft(draft.id)}
+                      title="Hapus draft"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </section>
+
+      {/* SECTION 2: About Armory (Dipindahkan dari About.jsx) */}
+      <section className="profile-section card-box">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+          <Info size={20} stroke="var(--brass)" />
+          <h2 className="section-title" style={{ margin: 0 }}>Tentang Bore &amp; Barrel</h2>
+        </div>
+        <h3 className="display" style={{ fontSize: '1.4rem', margin: '8px 0 6px' }}>
+          A one-room armory.
+        </h3>
+        <p className="lede" style={{ fontSize: '0.95rem', lineHeight: '1.6' }}>
+          Bore &amp; Barrel sells a short, honest list of firearms. Each piece is priced
+          from the bench — no markup theatre, no filler. Didirikan untuk menghadirkan
+          katalog perlengkapan taktis terstandarisasi dengan spesifikasi mekanis presisi.
+        </p>
+      </section>
+
+      {/* SECTION 3: Contact & Location (Dipindahkan dari Contact.jsx) */}
+      <section className="profile-section card-box">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+          <MapPin size={20} stroke="var(--brass)" />
+          <h2 className="section-title" style={{ margin: 0 }}>Kontak &amp; Markas Armory</h2>
+        </div>
+        <p className="lede" style={{ fontSize: '0.95rem', marginBottom: '16px' }}>
+          Kunjungi workshop fisik atau hubungi radio operasional kami:
+        </p>
+
+        <div className="contact-grid">
+          <div className="contact-card">
+            <MapPin size={18} stroke="var(--steel)" />
+            <div>
+              <strong>Alamat:</strong>
+              <div>123 Range Road, Armory District</div>
+            </div>
+          </div>
+
+          <div className="contact-card">
+            <Clock size={18} stroke="var(--steel)" />
+            <div>
+              <strong>Jam Operasional:</strong>
+              <div>Selasa – Sabtu, 10:00 – 18:00 WIB</div>
+            </div>
+          </div>
+
+          <div className="contact-card">
+            <Phone size={18} stroke="var(--steel)" />
+            <div>
+              <strong>Telepon / Radio:</strong>
+              <div>(555) 010-0100 / Call Sign: Delta-1</div>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   )
 }

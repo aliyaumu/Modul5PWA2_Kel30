@@ -1,23 +1,63 @@
+import { useState } from 'react'
+import { Share2, ShoppingCart, Check } from 'lucide-react'
 import FavoriteButton from '../common/FavoriteButton'
 import { formatPrice, truncate } from '../../utils/helpers'
+import { useCart } from '../../hooks/useCart'
 
 /**
- * Product card used in the catalog grid.
+ * Product card used in the catalog grid with Share and Add-to-Cart actions.
  *
  * @param {Object}   props
  * @param {Object}   props.gun       — product data
  * @param {Function} props.onSelect  — called with the gun when clicked
  * @param {Function} [props.onEdit]  — called when Edit is clicked (admin)
  * @param {Function} [props.onDelete]— called when Delete is clicked (admin)
+ * @param {Function} [props.onRestore] - called when restoring archived item
  */
-export default function GunCard({ gun, onSelect, onEdit, onDelete }) {
+export default function GunCard({ gun, onSelect, onEdit, onDelete, onRestore, isArchivedView }) {
   const imgSrc = gun.image_url || gun.image || '/guns/pistol.svg'
   const category = gun.type || gun.category || '—'
   const caliber = gun.caliber || gun.difficulty || ''
   const price = gun.price ?? gun.cook_time ?? 0
 
+  const { addItem } = useCart()
+  const [copied, setCopied] = useState(false)
+  const [added, setAdded] = useState(false)
+
+  const handleShare = async (e) => {
+    e.stopPropagation()
+    const shareUrl = `${window.location.origin}${window.location.pathname}?gun=${encodeURIComponent(gun.id)}`
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${gun.name} — Bore & Barrel`,
+          text: `Cek ${gun.name} di Bore & Barrel Armory!`,
+          url: shareUrl,
+        })
+        return
+      } catch {
+        // fallback
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // ignore
+    }
+  }
+
+  const handleAddToCart = (e) => {
+    e.stopPropagation()
+    addItem(gun, 1)
+    setAdded(true)
+    setTimeout(() => setAdded(false), 2000)
+  }
+
   return (
-    <li className="card">
+    <li className={`card ${isArchivedView ? 'card--archived' : ''}`}>
       <button
         type="button"
         className="card-btn"
@@ -31,6 +71,7 @@ export default function GunCard({ gun, onSelect, onEdit, onDelete }) {
           width="240"
           height="180"
           loading="lazy"
+          decoding="async"
         />
 
         <span className="name display">{gun.name}</span>
@@ -45,34 +86,102 @@ export default function GunCard({ gun, onSelect, onEdit, onDelete }) {
         )}
 
         <span className="price">{formatPrice(price)}</span>
+
+        {isArchivedView && (
+          <span className="archived-tag">Arsip / Terhapus</span>
+        )}
       </button>
 
       {/* Floating actions row */}
       <div className="card-actions">
-        <FavoriteButton gunId={gun.id || gun.name} />
+        {!isArchivedView && (
+          <>
+            <button
+              type="button"
+              className={`card-act-btn ${added ? 'card-act-btn--success' : ''}`}
+              onClick={handleAddToCart}
+              title={added ? 'Ditambahkan ke keranjang' : 'Tambah ke keranjang'}
+              aria-label="Add to cart"
+            >
+              {added ? <Check size={14} color="#27ae60" /> : <ShoppingCart size={14} />}
+            </button>
 
-        {onEdit && (
-          <button
-            type="button"
-            className="card-act-btn"
-            onClick={(e) => { e.stopPropagation(); onEdit(gun) }}
-            aria-label={`Edit ${gun.name}`}
-            title="Edit"
-          >
-            ✏️
-          </button>
+            <button
+              type="button"
+              className={`card-act-btn ${copied ? 'card-act-btn--success' : ''}`}
+              onClick={handleShare}
+              title={copied ? 'Tautan disalin!' : 'Bagikan tautan'}
+              aria-label="Share gun link"
+            >
+              {copied ? <Check size={14} color="var(--brass)" /> : <Share2 size={14} />}
+            </button>
+
+            <FavoriteButton gunId={gun.id || gun.name} />
+
+            {onEdit && (
+              <button
+                type="button"
+                className="card-act-btn"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onEdit(gun)
+                }}
+                aria-label={`Edit ${gun.name}`}
+                title="Edit"
+              >
+                ✏️
+              </button>
+            )}
+
+            {onDelete && (
+              <button
+                type="button"
+                className="card-act-btn card-act-btn--danger"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onDelete(gun)
+                }}
+                aria-label={`Hapus atau Arsipkan ${gun.name}`}
+                title="Hapus / Arsipkan"
+              >
+                🗑️
+              </button>
+            )}
+          </>
         )}
 
-        {onDelete && (
-          <button
-            type="button"
-            className="card-act-btn card-act-btn--danger"
-            onClick={(e) => { e.stopPropagation(); onDelete(gun) }}
-            aria-label={`Delete ${gun.name}`}
-            title="Delete"
-          >
-            🗑️
-          </button>
+        {isArchivedView && (
+          <>
+            {onRestore && (
+              <button
+                type="button"
+                className="btn btn--outline btn--sm"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onRestore(gun)
+                }}
+                title="Pulihkan ke katalog aktif"
+                style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+              >
+                Pulihkan
+              </button>
+            )}
+
+            {onDelete && (
+              <button
+                type="button"
+                className="card-act-btn card-act-btn--danger"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onDelete(gun)
+                }}
+                aria-label={`Hapus permanen ${gun.name}`}
+                title="Hapus Permanen"
+              >
+                🗑️
+              </button>
+            )}
+          </>
         )}
       </div>
     </li>
