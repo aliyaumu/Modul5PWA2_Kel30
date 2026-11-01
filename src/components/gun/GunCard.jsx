@@ -1,11 +1,12 @@
-import { useState } from 'react'
-import { Share2, ShoppingCart, Check } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Share2, ShoppingCart, Check, ImagePlus } from 'lucide-react'
 import FavoriteButton from '../common/FavoriteButton'
 import { formatPrice, truncate } from '../../utils/helpers'
 import { useCart } from '../../hooks/useCart'
+import { getExtraImage, setExtraImage } from '../../utils/extraImagesStorage'
 
 /**
- * Product card used in the catalog grid with Share and Add-to-Cart actions.
+ * Product card used in the catalog grid with Share, Add-to-Cart, and Extra Image support.
  *
  * @param {Object}   props
  * @param {Object}   props.gun       — product data
@@ -23,6 +24,18 @@ export default function GunCard({ gun, onSelect, onEdit, onDelete, onRestore, is
   const { addItem } = useCart()
   const [copied, setCopied] = useState(false)
   const [added, setAdded] = useState(false)
+
+  // Extra image management (each catalog item can have 1 additional image)
+  const [extraImg, setExtraImg] = useState(() => getExtraImage(gun.id))
+  const [showingExtra, setShowingExtra] = useState(false)
+
+  useEffect(() => {
+    const handleExtraSync = () => {
+      setExtraImg(getExtraImage(gun.id))
+    }
+    window.addEventListener('extra_images_updated', handleExtraSync)
+    return () => window.removeEventListener('extra_images_updated', handleExtraSync)
+  }, [gun.id])
 
   const handleShare = async (e) => {
     e.stopPropagation()
@@ -56,6 +69,27 @@ export default function GunCard({ gun, onSelect, onEdit, onDelete, onRestore, is
     setTimeout(() => setAdded(false), 2000)
   }
 
+  const handleQuickUpload = (e) => {
+    e.stopPropagation()
+    const file = e.target.files[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Ukuran gambar maksimal 5MB.')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const dataUrl = event.target.result
+      setExtraImage(gun.id, dataUrl)
+      setExtraImg(dataUrl)
+      setShowingExtra(true)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const displayImg = showingExtra && extraImg ? extraImg : imgSrc
+
   return (
     <li className={`card ${isArchivedView ? 'card--archived' : ''}`}>
       <button
@@ -64,15 +98,30 @@ export default function GunCard({ gun, onSelect, onEdit, onDelete, onRestore, is
         onClick={() => onSelect(gun)}
         aria-label={`View ${gun.name}`}
       >
-        <img
-          className="card-img"
-          src={imgSrc}
-          alt={gun.name}
-          width="240"
-          height="180"
-          loading="lazy"
-          decoding="async"
-        />
+        <div className="card-img-wrap">
+          <img
+            className="card-img"
+            src={displayImg}
+            alt={gun.name}
+            width="240"
+            height="180"
+            loading="lazy"
+            decoding="async"
+          />
+
+          {extraImg && (
+            <span
+              className="card-multi-badge"
+              onClick={(e) => {
+                e.stopPropagation()
+                setShowingExtra((s) => !s)
+              }}
+              title="Klik untuk beralih foto 1 dan 2"
+            >
+              📷 {showingExtra ? '2/2' : '1/2'}
+            </span>
+          )}
+        </div>
 
         <span className="name display">{gun.name}</span>
 
@@ -96,6 +145,23 @@ export default function GunCard({ gun, onSelect, onEdit, onDelete, onRestore, is
       <div className="card-actions">
         {!isArchivedView && (
           <>
+            {/* Quick Add 1 Extra Image */}
+            {!extraImg && (
+              <label
+                className="card-act-btn"
+                title="Tambah 1 gambar untuk senjata ini"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ImagePlus size={14} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden-file-input"
+                  onChange={handleQuickUpload}
+                />
+              </label>
+            )}
+
             <button
               type="button"
               className={`card-act-btn ${added ? 'card-act-btn--success' : ''}`}

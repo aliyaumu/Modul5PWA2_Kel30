@@ -15,6 +15,8 @@ import {
   Trash2,
   X,
   CheckCircle,
+  ImagePlus,
+  Camera,
 } from 'lucide-react'
 import FavoriteButton from '../common/FavoriteButton'
 import { useReviews, useCreateReview } from '../../hooks/useReviews'
@@ -26,15 +28,25 @@ import {
   getReviewReaction,
   toggleReviewReaction,
 } from '../../utils/reactionStorage'
+import {
+  getExtraImage,
+  setExtraImage,
+  removeExtraImage,
+} from '../../utils/extraImagesStorage'
 
 /**
- * Full-screen product detail view with Share, Cart, and full Review CRUD with Reactions.
+ * Full-screen product detail view with Share, Cart, extra image management, and full Review CRUD with Reactions.
  */
 export default function GunDetail({ gun, onBack, onEdit, onDelete }) {
   const imgSrc = gun.image_url || gun.image || '/guns/pistol.svg'
   const category = gun.type || gun.category || '—'
   const caliber = gun.caliber || gun.difficulty || ''
   const price = gun.price ?? gun.cook_time ?? 0
+
+  // Extra image state (each catalog item can have 1 additional image)
+  const [extraImage, setExtraImageState] = useState(() => getExtraImage(gun.id))
+  const [activeImgIndex, setActiveImgIndex] = useState(0)
+  const [imageFeedback, setImageFeedback] = useState('')
 
   // Cart integration
   const { addItem } = useCart()
@@ -165,6 +177,35 @@ export default function GunDetail({ gun, onBack, onEdit, onDelete }) {
     setReactionTick((t) => t + 1)
   }
 
+  const handleUploadExtraImage = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Ukuran file gambar maksimal 5MB.')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const dataUrl = event.target.result
+      setExtraImage(gun.id, dataUrl)
+      setExtraImageState(dataUrl)
+      setActiveImgIndex(1)
+      setImageFeedback('Gambar kedua berhasil ditambahkan ke katalog!')
+      setTimeout(() => setImageFeedback(''), 3500)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleRemoveExtraImage = () => {
+    removeExtraImage(gun.id)
+    setExtraImageState(null)
+    setActiveImgIndex(0)
+    setImageFeedback('Gambar tambahan telah dihapus.')
+    setTimeout(() => setImageFeedback(''), 3000)
+  }
+
+  const currentDisplayImg = activeImgIndex === 1 && extraImage ? extraImage : imgSrc
+
   return (
     <div className="detail">
       {/* Top action bar */}
@@ -195,15 +236,69 @@ export default function GunDetail({ gun, onBack, onEdit, onDelete }) {
         </div>
       )}
 
+      {imageFeedback && (
+        <div className="toast toast--success">
+          <CheckCircle size={18} /> {imageFeedback}
+        </div>
+      )}
+
       {/* Hero */}
       <div className="detail-hero">
-        <img
-          className="detail-img"
-          src={imgSrc}
-          alt={gun.name}
-          loading="lazy"
-          decoding="async"
-        />
+        <div className="detail-img-col">
+          <img
+            className="detail-img"
+            src={currentDisplayImg}
+            alt={gun.name}
+            loading="lazy"
+            decoding="async"
+          />
+
+          {/* Gallery Switcher & Add 1 Image Section */}
+          <div className="detail-gallery-strip">
+            <button
+              type="button"
+              className={`gallery-thumb-btn ${activeImgIndex === 0 ? 'gallery-thumb-btn--active' : ''}`}
+              onClick={() => setActiveImgIndex(0)}
+              title="Lihat Gambar Utama"
+            >
+              <img src={imgSrc} alt="Foto Utama" />
+              <span>Foto 1 (Utama)</span>
+            </button>
+
+            {extraImage ? (
+              <div className="gallery-extra-item">
+                <button
+                  type="button"
+                  className={`gallery-thumb-btn ${activeImgIndex === 1 ? 'gallery-thumb-btn--active' : ''}`}
+                  onClick={() => setActiveImgIndex(1)}
+                  title="Lihat Gambar Tambahan"
+                >
+                  <img src={extraImage} alt="Foto Tambahan" />
+                  <span>Foto 2 (Tambahan)</span>
+                </button>
+                <button
+                  type="button"
+                  className="gallery-remove-btn"
+                  onClick={handleRemoveExtraImage}
+                  title="Hapus foto tambahan"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            ) : (
+              <label className="gallery-add-btn" title="Tambah 1 gambar untuk katalog senjata ini">
+                <ImagePlus size={16} />
+                <span>+ Tambah 1 Gambar</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden-file-input"
+                  onChange={handleUploadExtraImage}
+                />
+              </label>
+            )}
+          </div>
+        </div>
 
         <div className="detail-info">
           <h1 className="display">{gun.name}</h1>
